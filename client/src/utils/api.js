@@ -137,6 +137,11 @@ export const usersAPI = {
   toggleStatus: (id) => api.patch(`/users/${id}/toggle-status`),
   resetPassword: (id, data) => api.patch(`/users/${id}/reset-password`, data),
   getStats: () => api.get('/users/stats'),
+  getInstructors: () => api.get('/users/instructors'),
+};
+
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats'),
 };
 
 export default api;

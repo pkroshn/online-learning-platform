@@ -365,6 +365,45 @@ const getUserStats = async (req, res) => {
   }
 };
 
+// Get instructors (users who can teach courses)
+const getInstructors = async (req, res) => {
+  try {
+    const instructors = await User.findAll({
+      where: {
+        role: {
+          [Op.in]: ['instructor', 'admin']
+        },
+        isActive: true
+      },
+      attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'profileImage'],
+      order: [['firstName', 'ASC'], ['lastName', 'ASC']]
+    });
+
+    // Format instructors for dropdown
+    const formattedInstructors = instructors.map(instructor => ({
+      id: instructor.id,
+      value: instructor.id,
+      label: `${instructor.firstName} ${instructor.lastName}`,
+      email: instructor.email,
+      role: instructor.role,
+      profileImage: instructor.profileImage,
+      fullName: `${instructor.firstName} ${instructor.lastName}`
+    }));
+
+    res.json({
+      success: true,
+      data: formattedInstructors
+    });
+  } catch (error) {
+    console.error('Get instructors error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch instructors',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -373,5 +412,6 @@ module.exports = {
   deleteUser,
   toggleUserStatus,
   resetUserPassword,
-  getUserStats
+  getUserStats,
+  getInstructors
 };

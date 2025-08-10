@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
   BookOpenIcon, 
   AcademicCapIcon, 
@@ -9,8 +10,11 @@ import {
   ArrowRightIcon,
   PlayCircleIcon
 } from '@heroicons/react/24/outline';
+import { selectSiteName, selectSiteDescription } from '../store/slices/settingsSlice';
 
 const LandingPage = () => {
+  const siteName = useSelector(selectSiteName);
+  const siteDescription = useSelector(selectSiteDescription);
   const features = [
     {
       icon: BookOpenIcon,
@@ -70,7 +74,7 @@ const LandingPage = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold gradient-text">EduPlatform</h1>
+                <h1 className="text-2xl font-bold gradient-text">{siteName}</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -100,8 +104,7 @@ const LandingPage = () => {
               <span className="gradient-text block">Quality Education</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Join thousands of learners worldwide and unlock your potential with our comprehensive 
-              online learning platform. Expert-led courses, interactive content, and personalized learning paths.
+              {siteDescription}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -273,30 +276,30 @@ const LandingPage = () => {
             <div>
               <h4 className="text-white font-semibold mb-4">Platform</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white transition-colors">Courses</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Instructors</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Enterprise</a></li>
+                <li><button className="hover:text-white transition-colors">Courses</button></li>
+                <li><button className="hover:text-white transition-colors">Instructors</button></li>
+                <li><button className="hover:text-white transition-colors">Pricing</button></li>
+                <li><button className="hover:text-white transition-colors">Enterprise</button></li>
               </ul>
             </div>
             
             <div>
               <h4 className="text-white font-semibold mb-4">Support</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Community</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Status</a></li>
+                <li><button className="hover:text-white transition-colors">Help Center</button></li>
+                <li><button className="hover:text-white transition-colors">Contact Us</button></li>
+                <li><button className="hover:text-white transition-colors">Community</button></li>
+                <li><button className="hover:text-white transition-colors">Status</button></li>
               </ul>
             </div>
             
             <div>
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
+                <li><button className="hover:text-white transition-colors">About</button></li>
+                <li><button className="hover:text-white transition-colors">Blog</button></li>
+                <li><button className="hover:text-white transition-colors">Careers</button></li>
+                <li><button className="hover:text-white transition-colors">Privacy</button></li>
               </ul>
             </div>
           </div>

@@ -23,6 +23,7 @@ const authRoutes = require('./routes/auth');
 const courseRoutes = require('./routes/courses');
 const enrollmentRoutes = require('./routes/enrollments');
 const userRoutes = require('./routes/users');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,6 +71,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/courses', apiLimiter, courseRoutes);
 app.use('/api/enrollments', apiLimiter, enrollmentRoutes);
 app.use('/api/users', apiLimiter, userRoutes);
+app.use('/api/dashboard', apiLimiter, dashboardRoutes);
 
 // API Info endpoint
 app.get('/api', (req, res) => {
@@ -82,7 +84,8 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       courses: '/api/courses',
       enrollments: '/api/enrollments',
-      users: '/api/users'
+      users: '/api/users',
+      dashboard: '/api/dashboard'
     },
     features: [
       'JWT Authentication',

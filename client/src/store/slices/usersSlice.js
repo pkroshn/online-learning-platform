@@ -5,9 +5,11 @@ import toast from 'react-hot-toast';
 // Initial state
 const initialState = {
   users: [],
+  instructors: [],
   currentUser: null,
   stats: null,
   loading: false,
+  instructorsLoading: false,
   error: null,
   pagination: {
     currentPage: 1,
@@ -18,11 +20,25 @@ const initialState = {
   filters: {
     search: '',
     role: '',
-    isActive: '',
+    status: '',
     sortBy: 'createdAt',
     sortOrder: 'DESC',
   },
 };
+
+// Fetch instructors
+export const fetchInstructors = createAsyncThunk(
+  'users/fetchInstructors',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await usersAPI.getInstructors();
+      return response.data.data;
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to fetch instructors';
+      return rejectWithValue(message);
+    }
+  }
+);
 
 // Async thunks
 export const fetchUsers = createAsyncThunk(
@@ -32,8 +48,14 @@ export const fetchUsers = createAsyncThunk(
       const { filters } = getState().users;
       const queryParams = { ...filters, ...params };
       
+      // Map status filter to isActive for backend compatibility
+      if (queryParams.status) {
+        queryParams.isActive = queryParams.status === 'active';
+        delete queryParams.status;
+      }
+      
       const response = await usersAPI.getAll(queryParams);
-      return response.data.data;
+      return response.data;
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to fetch users';
       return rejectWithValue(message);
@@ -59,7 +81,6 @@ export const createUser = createAsyncThunk(
   async (userData, { rejectWithValue, dispatch }) => {
     try {
       const response = await usersAPI.create(userData);
-      toast.success('User created successfully!');
       
       // Refresh users list
       dispatch(fetchUsers());
@@ -77,7 +98,6 @@ export const updateUser = createAsyncThunk(
   async ({ id, data }, { rejectWithValue, dispatch }) => {
     try {
       const response = await usersAPI.update(id, data);
-      toast.success('User updated successfully!');
       
       // Refresh users list
       dispatch(fetchUsers());
@@ -95,7 +115,6 @@ export const deleteUser = createAsyncThunk(
   async (id, { rejectWithValue, dispatch }) => {
     try {
       await usersAPI.delete(id);
-      toast.success('User deleted successfully!');
       
       // Refresh users list
       dispatch(fetchUsers());
@@ -189,12 +208,28 @@ const usersSlice = createSlice({
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload.users;
-        state.pagination = action.payload.pagination;
+        // The API response structure is: { success: true, data: { users: [...], pagination: {...} } }
+        state.users = action.payload.data?.users || [];
+        state.pagination = action.payload.data?.pagination || state.pagination;
         state.error = null;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Fetch Instructors
+      .addCase(fetchInstructors.pending, (state) => {
+        state.instructorsLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchInstructors.fulfilled, (state, action) => {
+        state.instructorsLoading = false;
+        state.instructors = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchInstructors.rejected, (state, action) => {
+        state.instructorsLoading = false;
         state.error = action.payload;
       })
       
@@ -307,9 +342,11 @@ export const {
 
 // Selectors
 export const selectUsers = (state) => state.users.users;
+export const selectInstructors = (state) => state.users.instructors;
 export const selectCurrentUser = (state) => state.users.currentUser;
 export const selectUserStats = (state) => state.users.stats;
 export const selectUsersLoading = (state) => state.users.loading;
+export const selectInstructorsLoading = (state) => state.users.instructorsLoading;
 export const selectUsersError = (state) => state.users.error;
 export const selectUsersPagination = (state) => state.users.pagination;
 export const selectUsersFilters = (state) => state.users.filters;

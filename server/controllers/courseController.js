@@ -47,6 +47,11 @@ const getAllCourses = async (req, res) => {
       order: [[sortBy, sortOrder.toUpperCase()]],
       include: [
         {
+          association: 'instructorUser',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'profileImage'],
+          required: false
+        },
+        {
           association: 'enrollments',
           attributes: ['id', 'status'],
           where: { status: 'active' },
@@ -94,6 +99,11 @@ const getCourseById = async (req, res) => {
     const course = await Course.findOne({
       where: { id, isActive: true },
       include: [
+        {
+          association: 'instructorUser',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'profileImage'],
+          required: false
+        },
         {
           association: 'enrollments',
           attributes: ['id', 'status', 'enrollmentDate'],
@@ -148,12 +158,44 @@ const createCourse = async (req, res) => {
   try {
     const courseData = req.body;
     
+    // If instructorId is provided, verify the instructor exists and has proper role
+    if (courseData.instructorId) {
+      const instructor = await User.findOne({
+        where: { 
+          id: courseData.instructorId, 
+          role: { [Op.in]: ['instructor', 'admin'] },
+          isActive: true 
+        }
+      });
+      
+      if (!instructor) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid instructor selected'
+        });
+      }
+      
+      // Set instructor name for backward compatibility
+      courseData.instructor = `${instructor.firstName} ${instructor.lastName}`;
+    }
+    
     const course = await Course.create(courseData);
+    
+    // Fetch the created course with instructor information
+    const courseWithInstructor = await Course.findByPk(course.id, {
+      include: [
+        {
+          association: 'instructorUser',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'profileImage'],
+          required: false
+        }
+      ]
+    });
 
     res.status(201).json({
       success: true,
       message: 'Course created successfully',
-      data: { course }
+      data: { course: courseWithInstructor }
     });
   } catch (error) {
     console.error('Create course error:', error);
@@ -178,12 +220,44 @@ const updateCourse = async (req, res) => {
       });
     }
 
+    // If instructorId is provided, verify the instructor exists and has proper role
+    if (updateData.instructorId) {
+      const instructor = await User.findOne({
+        where: { 
+          id: updateData.instructorId, 
+          role: { [Op.in]: ['instructor', 'admin'] },
+          isActive: true 
+        }
+      });
+      
+      if (!instructor) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid instructor selected'
+        });
+      }
+      
+      // Set instructor name for backward compatibility
+      updateData.instructor = `${instructor.firstName} ${instructor.lastName}`;
+    }
+
     await course.update(updateData);
+    
+    // Fetch the updated course with instructor information
+    const updatedCourse = await Course.findByPk(id, {
+      include: [
+        {
+          association: 'instructorUser',
+          attributes: ['id', 'firstName', 'lastName', 'email', 'profileImage'],
+          required: false
+        }
+      ]
+    });
 
     res.json({
       success: true,
       message: 'Course updated successfully',
-      data: { course }
+      data: { course: updatedCourse }
     });
   } catch (error) {
     console.error('Update course error:', error);

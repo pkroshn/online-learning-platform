@@ -16,14 +16,31 @@ const initialState = {
     totalItems: 0,
     itemsPerPage: 10,
   },
+  filters: {
+    search: '',
+    courseId: '',
+    userId: '',
+    status: '',
+    sortBy: 'createdAt',
+    sortOrder: 'DESC',
+  },
 };
 
 // Async thunks
 export const fetchEnrollments = createAsyncThunk(
   'enrollments/fetchEnrollments',
-  async (params = {}, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue, getState }) => {
     try {
-      const response = await enrollmentsAPI.getAll(params);
+      const state = getState();
+      const filters = state.enrollments.filters;
+      
+      // Merge filters with any passed params
+      const queryParams = {
+        ...filters,
+        ...params,
+      };
+
+      const response = await enrollmentsAPI.getAll(queryParams);
       return response.data.data;
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to fetch enrollments';
@@ -157,6 +174,19 @@ const enrollmentsSlice = createSlice({
     clearCurrentEnrollment: (state) => {
       state.currentEnrollment = null;
     },
+    setFilters: (state, action) => {
+      state.filters = { ...state.filters, ...action.payload };
+    },
+    resetFilters: (state) => {
+      state.filters = {
+        search: '',
+        courseId: '',
+        userId: '',
+        status: '',
+        sortBy: 'createdAt',
+        sortOrder: 'DESC',
+      };
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -275,6 +305,8 @@ export const {
   clearError,
   setCurrentEnrollment,
   clearCurrentEnrollment,
+  setFilters,
+  resetFilters,
 } = enrollmentsSlice.actions;
 
 // Selectors
@@ -285,5 +317,6 @@ export const selectEnrollmentStats = (state) => state.enrollments.stats;
 export const selectEnrollmentsLoading = (state) => state.enrollments.loading;
 export const selectEnrollmentsError = (state) => state.enrollments.error;
 export const selectEnrollmentsPagination = (state) => state.enrollments.pagination;
+export const selectEnrollmentsFilters = (state) => state.enrollments.filters;
 
 export default enrollmentsSlice.reducer;

@@ -81,11 +81,15 @@ const corsOptions = {
         'https://your-production-domain.com',
         'https://www.your-production-domain.com'
       );
+    } else {
+      // In development, be more permissive
+      return callback(null, true);
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

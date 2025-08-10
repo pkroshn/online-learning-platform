@@ -1,4 +1,4 @@
-const { sequelize } = require('../config/database');
+const { sequelize, testConnection } = require('../config/database');
 const User = require('./User');
 const Course = require('./Course');
 const Enrollment = require('./Enrollment');
@@ -41,6 +41,17 @@ Course.belongsToMany(User, {
   as: 'students'
 });
 
+// Course-Instructor relationship
+Course.belongsTo(User, {
+  foreignKey: 'instructorId',
+  as: 'instructorUser'
+});
+
+User.hasMany(Course, {
+  foreignKey: 'instructorId',
+  as: 'instructedCourses'
+});
+
 // Sync database
 const syncDatabase = async (force = false) => {
   try {
@@ -79,6 +90,7 @@ const createDefaultAdmin = async () => {
 
 module.exports = {
   sequelize,
+  testConnection,
   User,
   Course,
   Enrollment,

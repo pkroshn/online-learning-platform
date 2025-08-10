@@ -135,9 +135,9 @@ const LoginPage = () => {
                 </div>
 
                 <div className="text-sm">
-                  <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
+                  <button className="font-medium text-primary-600 hover:text-primary-500">
                     Forgot your password?
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -175,13 +175,13 @@ const LoginPage = () => {
         <div className="text-center text-sm text-gray-600">
           <p>
             By signing in, you agree to our{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-500">
+            <button className="text-primary-600 hover:text-primary-500">
               Terms of Service
-            </a>{' '}
+            </button>{' '}
             and{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-500">
+            <button className="text-primary-600 hover:text-primary-500">
               Privacy Policy
-            </a>
+            </button>
           </p>
         </div>
       </div>

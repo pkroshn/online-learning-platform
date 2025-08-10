@@ -78,6 +78,50 @@ router.get('/stats', authenticate, authorize('admin'), userController.getUserSta
 
 /**
  * @swagger
+ * /api/users/instructors:
+ *   get:
+ *     summary: Get all instructors (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Instructors retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       value:
+ *                         type: integer
+ *                       label:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       role:
+ *                         type: string
+ *                       profileImage:
+ *                         type: string
+ *                       fullName:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/instructors', authenticate, authorize('admin'), userController.getInstructors);
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   get:
  *     summary: Get user by ID (Admin only)

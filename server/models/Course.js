@@ -32,10 +32,17 @@ const Course = sequelize.define('Course', {
   },
   instructor: {
     type: DataTypes.STRING(100),
-    allowNull: false,
+    allowNull: true, // Made nullable since we're adding instructorId
     validate: {
-      notEmpty: true,
       len: [2, 100]
+    }
+  },
+  instructorId: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Will be required in future, but optional for migration
+    references: {
+      model: 'users',
+      key: 'id'
     }
   },
   duration: {
@@ -65,6 +72,14 @@ const Course = sequelize.define('Course', {
     defaultValue: 0.00,
     validate: {
       min: 0
+    }
+  },
+  currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'USD',
+    validate: {
+      len: [3, 3]
     }
   },
   maxStudents: {

@@ -36,6 +36,7 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 
 // Loading Component
 import LoadingSpinner from './components/common/LoadingSpinner';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -90,7 +91,7 @@ const AppContent = () => {
   }, [dispatch, isAuthenticated, user]);
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="min-h-screen bg-gray-50">
         <Routes>
           {/* Public Routes */}
@@ -262,11 +263,14 @@ const AppContent = () => {
 // Main App Component
 const App = () => {
   return (
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <AppContent />
-      </QueryClientProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <QueryClientProvider client={queryClient}>
+          <Toaster position="top-right" />
+          <AppContent />
+        </QueryClientProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 };
 
