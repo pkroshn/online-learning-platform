@@ -1,8 +1,11 @@
+// server.js - Fixed version with proper middleware order
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const bodyParser = require('body-parser');
 
 // Import configurations and middleware
 const { testConnection, syncDatabase } = require('./models');
@@ -24,6 +27,7 @@ const courseRoutes = require('./routes/courses');
 const enrollmentRoutes = require('./routes/enrollments');
 const userRoutes = require('./routes/users');
 const dashboardRoutes = require('./routes/dashboard');
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,7 +38,6 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmetConfig);
 app.use(cors(corsOptions));
-app.use(generalLimiter);
 
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -42,17 +45,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 app.use(requestLogger);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Input sanitization
-app.use(sanitizeInput);
-
-// Static file serving
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Health check endpoint
+// IMPORTANT: Health check endpoint BEFORE rate limiting
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -63,17 +56,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
-
-// API Routes with rate limiting
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/courses', apiLimiter, courseRoutes);
-app.use('/api/enrollments', apiLimiter, enrollmentRoutes);
-app.use('/api/users', apiLimiter, userRoutes);
-app.use('/api/dashboard', apiLimiter, dashboardRoutes);
-
-// API Info endpoint
+// IMPORTANT: API Info endpoint BEFORE rate limiting
 app.get('/api', (req, res) => {
   res.json({
     success: true,
@@ -85,7 +68,8 @@ app.get('/api', (req, res) => {
       courses: '/api/courses',
       enrollments: '/api/enrollments',
       users: '/api/users',
-      dashboard: '/api/dashboard'
+      dashboard: '/api/dashboard',
+      payments: '/api/payments'
     },
     features: [
       'JWT Authentication',
@@ -93,6 +77,8 @@ app.get('/api', (req, res) => {
       'Course Management',
       'Enrollment Tracking',
       'User Management',
+      'Payment Processing',
+      'Stripe Integration',
       'RESTful API Design',
       'Comprehensive Validation',
       'Rate Limiting',
@@ -101,6 +87,30 @@ app.get('/api', (req, res) => {
     ]
   });
 });
+
+// Stripe webhook endpoint with raw body parsing (MUST come before JSON parsing)
+app.use('/api/payments/webhook', bodyParser.raw({ type: 'application/json' }));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Input sanitization
+app.use(sanitizeInput);
+
+// Static file serving
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// API Documentation (before rate limiting for easy access)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
+
+// NOW apply rate limiting to API routes only
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/courses', apiLimiter, courseRoutes);
+app.use('/api/enrollments', apiLimiter, enrollmentRoutes);
+app.use('/api/users', apiLimiter, userRoutes);
+app.use('/api/dashboard', apiLimiter, dashboardRoutes);
+app.use('/api/payments', apiLimiter, paymentRoutes);
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -138,12 +148,16 @@ const startServer = async () => {
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
       console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
       console.log(`📊 API Info: http://localhost:${PORT}/api`);
+      console.log(`💳 Payment API: http://localhost:${PORT}/api/payments`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
       
       if (process.env.NODE_ENV === 'development') {
         console.log(`\n🔑 Default Admin Credentials:`);
         console.log(`   Email: ${process.env.ADMIN_EMAIL || 'admin@learningplatform.com'}`);
         console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
+        console.log(`\n💳 Stripe Configuration:`);
+        console.log(`   Secret Key: ${process.env.STRIPE_SECRET_KEY ? '✅ Configured' : '❌ Not Set'}`);
+        console.log(`   Webhook Secret: ${process.env.STRIPE_WEBHOOK_SECRET ? '✅ Configured' : '❌ Not Set'}`);
       }
     });
   } catch (error) {
