@@ -238,26 +238,6 @@ async function handleChargeDispute(dispute) {
   }
 }
 
-// Handle successful invoice payment (for subscriptions)
-async function handleInvoicePaymentSucceeded(invoice) {
-  try {
-    console.log('Processing invoice.payment_succeeded:', invoice.id);
-    // Implement subscription payment logic if needed
-    
-  } catch (error) {
-    console.error('Error processing invoice.payment_succeeded:', error);
-  }
-}
 
-// Handle subscription deletion
-async function handleSubscriptionDeleted(subscription) {
-  try {
-    console.log('Processing customer.subscription.deleted:', subscription.id);
-    // Implement subscription cancellation logic if needed
-    
-  } catch (error) {
-    console.error('Error processing customer.subscription.deleted:', error);
-  }
-}
 
 module.exports = webhookController;
