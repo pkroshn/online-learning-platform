@@ -12,15 +12,30 @@ import {
 import { fetchCourseById, selectCurrentCourse, selectCoursesLoading } from '../../store/slices/coursesSlice';
 import { enrollInCourse, selectEnrollmentsLoading } from '../../store/slices/enrollmentsSlice';
 import { paymentAPI } from '../../utils/api';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import LoadingSpinner from '../common/LoadingSpinner';
+import PurchaseConfirmationModal from '../modals/PurchaseConfirmationModal';
+import usePurchaseConfirmation from '../../hooks/usePurchaseConfirmation';
 
-const CourseDetailPage = () => {
+const CourseDetailWithModal = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const course = useSelector(selectCurrentCourse);
   const coursesLoading = useSelector(selectCoursesLoading);
   const enrollmentLoading = useSelector(selectEnrollmentsLoading);
   const [buyLoading, setBuyLoading] = useState(false);
+  
+  // Use the purchase confirmation hook
+  const {
+    modalState,
+    showSuccess,
+    showPending,
+    showFailed,
+    showLoading,
+    showError,
+    handleViewCourse,
+    handleViewMyCourses,
+    handleBrowseMore
+  } = usePurchaseConfirmation();
 
   useEffect(() => {
     if (id) {
@@ -36,17 +51,70 @@ const CourseDetailPage = () => {
     if (!course || course.price <= 0) return;
     
     setBuyLoading(true);
+    showLoading(); // Show loading modal
+    
     try {
       const response = await paymentAPI.createCheckoutSession(course.id);
       if (response.data.success && response.data.data.sessionUrl) {
-        // Redirect to Stripe checkout
-        window.location.href = response.data.data.sessionUrl;
+        // For demo purposes, we'll show a success modal instead of redirecting
+        // In a real implementation, you would redirect to Stripe checkout
+        // window.location.href = response.data.data.sessionUrl;
+        
+        // Simulate successful payment data
+        const purchaseData = {
+          status: 'succeeded',
+          amount: course.price,
+          currency: 'USD',
+          paymentId: `PAY-${Date.now()}`,
+          paidAt: new Date().toISOString(),
+          paymentMethod: 'card',
+          courseId: course.id,
+          course: {
+            id: course.id,
+            title: course.title,
+            instructor: course.instructor || 'Course Instructor'
+          }
+        };
+        
+        showSuccess(purchaseData);
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
-      // Error handling is done by the API interceptor
+      showError('Failed to process payment. Please try again.');
     } finally {
       setBuyLoading(false);
+    }
+  };
+
+  // Demo function to show different modal states
+  const showDemoModal = (type) => {
+    const demoData = {
+      status: type,
+      amount: course?.price || 99.99,
+      currency: 'USD',
+      paymentId: `PAY-DEMO-${Date.now()}`,
+      paidAt: new Date().toISOString(),
+      paymentMethod: 'card',
+      courseId: course?.id || 1,
+      course: {
+        id: course?.id || 1,
+        title: course?.title || 'Demo Course',
+        instructor: course?.instructor || 'Demo Instructor'
+      }
+    };
+
+    switch (type) {
+      case 'succeeded':
+        showSuccess(demoData);
+        break;
+      case 'pending':
+        showPending(demoData);
+        break;
+      case 'failed':
+        showFailed(demoData);
+        break;
+      default:
+        showSuccess(demoData);
     }
   };
 
@@ -101,28 +169,27 @@ const CourseDetailPage = () => {
 
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{course.title}</h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="flex items-center text-gray-600">
+          <div className="flex items-center space-x-6 text-gray-600 mb-6">
+            <div className="flex items-center">
               <UserIcon className="h-5 w-5 mr-2" />
-              <span>{course.instructor}</span>
+              <span>{course.instructor || 'Course Instructor'}</span>
             </div>
-            <div className="flex items-center text-gray-600">
+            <div className="flex items-center">
               <ClockIcon className="h-5 w-5 mr-2" />
-              <span>{course.duration} hours</span>
+              <span>{course.duration || '8 weeks'}</span>
             </div>
-            <div className="flex items-center text-gray-600">
+            <div className="flex items-center">
               <AcademicCapIcon className="h-5 w-5 mr-2" />
-              <span>{course.enrollmentCount || 0} students</span>
+              <span>{course.level}</span>
             </div>
           </div>
 
-          {/* Enrollment/Purchase Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {course.isEnrolled ? (
                 <span className="flex items-center text-green-600 font-medium">
                   <CheckCircleIcon className="h-5 w-5 mr-2" />
-                  Already Enrolled
+                  Enrolled
                 </span>
               ) : course.price > 0 ? (
                 // Paid course - show Buy Course button
@@ -168,6 +235,31 @@ const CourseDetailPage = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Demo Modal Buttons */}
+      <div className="bg-white rounded-xl shadow-soft p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Demo Purchase Confirmation Modal</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => showDemoModal('succeeded')}
+            className="btn-success"
+          >
+            Show Success Modal
+          </button>
+          <button
+            onClick={() => showDemoModal('pending')}
+            className="btn-secondary"
+          >
+            Show Pending Modal
+          </button>
+          <button
+            onClick={() => showDemoModal('failed')}
+            className="btn-danger"
+          >
+            Show Failed Modal
+          </button>
         </div>
       </div>
 
@@ -218,8 +310,20 @@ const CourseDetailPage = () => {
           </div>
         </div>
       )}
+
+      {/* Purchase Confirmation Modal */}
+      <PurchaseConfirmationModal
+        isOpen={modalState.isOpen}
+        onClose={modalState.closeModal}
+        purchaseData={modalState.purchaseData}
+        loading={modalState.loading}
+        error={modalState.error}
+        onViewCourse={handleViewCourse}
+        onViewMyCourses={handleViewMyCourses}
+        onBrowseMore={handleBrowseMore}
+      />
     </div>
   );
 };
 
-export default CourseDetailPage;
+export default CourseDetailWithModal;

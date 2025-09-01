@@ -15,7 +15,7 @@ const paymentValidation = {
     }
 
     // Check if course is active/published
-    if (course.status !== 'published') {
+    if (!course.isActive) {
       throw createPaymentError.invalidCourse();
     }
 
@@ -61,104 +61,99 @@ const paymentValidation = {
     const numAmount = parseFloat(amount);
     
     if (isNaN(numAmount) || numAmount <= 0) {
-      throw new Error('Payment amount must be a positive number');
+      throw createPaymentError.invalidAmount();
     }
 
+    // Check minimum amount (50 cents)
     if (numAmount < 0.50) {
-      throw new Error('Payment amount must be at least $0.50');
+      throw createPaymentError.amountTooLow();
     }
 
-    if (numAmount > 999999.99) {
-      throw new Error('Payment amount exceeds maximum limit');
+    // Check maximum amount ($10,000)
+    if (numAmount > 10000) {
+      throw createPaymentError.amountTooHigh();
     }
 
-    // Currency-specific validations
-    if (currency === 'USD' && numAmount * 100 !== Math.floor(numAmount * 100)) {
-      throw new Error('USD amounts must not have more than 2 decimal places');
-    }
-
-    return true;
+    return numAmount;
   },
 
-  // Validate refund request
-  async validateRefundRequest(paymentId, refundAmount) {
-    const payment = await Payment.findByPk(paymentId, {
-      include: [
-        { model: Course, as: 'course' },
-        { model: require('../models/User'), as: 'user' }
-      ]
+  // Validate currency
+  validateCurrency(currency) {
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
+    if (!validCurrencies.includes(currency.toUpperCase())) {
+      throw createPaymentError.invalidCurrency();
+    }
+    return currency.toUpperCase();
+  },
+
+  // Check course availability
+  async checkCourseAvailability(courseId) {
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      throw createPaymentError.invalidCourse();
+    }
+
+    if (!course.isActive) {
+      throw createPaymentError.courseInactive();
+    }
+
+    // Check if course has available slots
+    if (course.maxStudents) {
+      const enrollmentCount = await course.getEnrollmentCount();
+      if (enrollmentCount >= course.maxStudents) {
+        throw createPaymentError.courseFull();
+      }
+    }
+
+    return course;
+  },
+
+  // Validate user eligibility
+  async validateUserEligibility(userId, courseId) {
+    // Check if user exists and is active
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    if (!user || !user.isActive) {
+      throw createPaymentError.invalidUser();
+    }
+
+    // Check if user is already enrolled
+    const existingEnrollment = await Enrollment.findOne({
+      where: { userId, courseId }
+    });
+
+    if (existingEnrollment) {
+      if (existingEnrollment.paymentStatus === 'paid') {
+        throw createPaymentError.alreadyEnrolled();
+      } else if (existingEnrollment.paymentStatus === 'pending') {
+        throw createPaymentError.pendingEnrollment();
+      }
+    }
+
+    return user;
+  },
+
+  // Validate payment session
+  async validatePaymentSession(sessionId, userId) {
+    const payment = await Payment.findOne({
+      where: {
+        stripeSessionId: sessionId,
+        userId
+      }
     });
 
     if (!payment) {
       throw createPaymentError.paymentNotFound();
     }
 
-    if (payment.status !== 'succeeded') {
-      throw createPaymentError.refundNotAllowed();
-    }
-
-    // Check refund amount
-    const maxRefundAmount = payment.amount - payment.refundAmount;
-    
-    if (refundAmount && refundAmount > maxRefundAmount) {
-      throw new Error(`Refund amount cannot exceed $${maxRefundAmount.toFixed(2)}`);
-    }
-
-    // Check refund time limit (e.g., 90 days)
-    const refundTimeLimit = 90 * 24 * 60 * 60 * 1000; // 90 days in milliseconds
-    const paymentAge = Date.now() - new Date(payment.paidAt).getTime();
-    
-    if (paymentAge > refundTimeLimit) {
-      throw new Error('Refund request exceeds time limit of 90 days');
+    // Check if session is expired (30 minutes)
+    const sessionAge = Date.now() - payment.createdAt.getTime();
+    if (sessionAge > 30 * 60 * 1000) { // 30 minutes
+      await payment.update({ status: 'canceled' });
+      throw createPaymentError.sessionExpired();
     }
 
     return payment;
-  },
-
-  // Validate webhook signature
-  validateWebhookSignature(payload, signature, secret) {
-    try {
-      return stripe.webhooks.constructEvent(payload, signature, secret);
-    } catch (error) {
-      throw createPaymentError.webhookVerificationFailed();
-    }
-  },
-
-  // Sanitize payment metadata
-  sanitizePaymentMetadata(metadata) {
-    const sanitized = {};
-    const allowedKeys = [
-      'courseTitle', 'courseThumbnail', 'customerEmail', 
-      'sessionUrl', 'successUrl', 'cancelUrl',
-      'paymentMethod', 'receiptUrl', 'refunds'
-    ];
-
-    for (const key in metadata) {
-      if (allowedKeys.includes(key) && metadata[key] !== null && metadata[key] !== undefined) {
-        sanitized[key] = String(metadata[key]).slice(0, 500); // Limit string length
-      }
-    }
-
-    return sanitized;
-  },
-
-  // Validate payment session status
-  async validatePaymentSession(sessionId) {
-    try {
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      
-      // Check if session is expired
-      if (session.expires_at && session.expires_at * 1000 < Date.now()) {
-        throw createPaymentError.sessionExpired();
-      }
-
-      return session;
-    } catch (stripeError) {
-      if (stripeError.type === 'StripeInvalidRequestError') {
-        throw createPaymentError.sessionExpired();
-      }
-      throw stripeError;
-    }
   }
 };
 

@@ -72,6 +72,7 @@ const Enrollment = sequelize.define('Enrollment', {
   }
 }, {
   tableName: 'enrollments',
+  underscored: true,
   indexes: [
     {
       unique: true,

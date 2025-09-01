@@ -2,65 +2,101 @@ const { sequelize, testConnection } = require('../config/database');
 const User = require('./User');
 const Course = require('./Course');
 const Enrollment = require('./Enrollment');
+const Payment = require('./Payment');
 
 // Define associations
 User.hasMany(Enrollment, {
-  foreignKey: 'userId',
+  foreignKey: 'user_id',
   as: 'enrollments',
   onDelete: 'CASCADE'
 });
 
 Course.hasMany(Enrollment, {
-  foreignKey: 'courseId',
+  foreignKey: 'course_id',
   as: 'enrollments',
   onDelete: 'CASCADE'
 });
 
 Enrollment.belongsTo(User, {
-  foreignKey: 'userId',
+  foreignKey: 'user_id',
   as: 'user'
 });
 
 Enrollment.belongsTo(Course, {
-  foreignKey: 'courseId',
+  foreignKey: 'course_id',
   as: 'course'
 });
 
 // Many-to-many relationship through Enrollment
 User.belongsToMany(Course, {
   through: Enrollment,
-  foreignKey: 'userId',
-  otherKey: 'courseId',
+  foreignKey: 'user_id',
+  otherKey: 'course_id',
   as: 'courses'
 });
 
 Course.belongsToMany(User, {
   through: Enrollment,
-  foreignKey: 'courseId',
-  otherKey: 'userId',
+  foreignKey: 'course_id',
+  otherKey: 'user_id',
   as: 'students'
 });
 
 // Course-Instructor relationship
 Course.belongsTo(User, {
-  foreignKey: 'instructorId',
+  foreignKey: 'instructor_id',
   as: 'instructorUser'
 });
 
 User.hasMany(Course, {
-  foreignKey: 'instructorId',
+  foreignKey: 'instructor_id',
   as: 'instructedCourses'
+});
+
+// Payment associations
+User.hasMany(Payment, {
+  foreignKey: 'user_id',
+  as: 'payments',
+  onDelete: 'CASCADE'
+});
+
+Course.hasMany(Payment, {
+  foreignKey: 'course_id',
+  as: 'payments',
+  onDelete: 'CASCADE'
+});
+
+Payment.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+Payment.belongsTo(Course, {
+  foreignKey: 'course_id',
+  as: 'course'
 });
 
 // Sync database
 const syncDatabase = async (force = false) => {
   try {
-    await sequelize.sync({ force });
+    // Sync models in the correct order to avoid foreign key issues
+    if (force) {
+      // Drop all tables and recreate them
+      await sequelize.drop();
+    }
+    
+    // Sync in order: User -> Course -> Enrollment -> Payment
+    await User.sync({ force });
+    await Course.sync({ force });
+    await Enrollment.sync({ force });
+    await Payment.sync({ force });
+    
     console.log('✅ Database synchronized successfully.');
     
-    // Create default admin user if not exists
+    // Create default users if not exists
     if (force || process.env.NODE_ENV === 'development') {
       await createDefaultAdmin();
+      await createDefaultStudent();
     }
   } catch (error) {
     console.error('❌ Error synchronizing database:', error);
@@ -81,10 +117,30 @@ const createDefaultAdmin = async () => {
         role: 'admin',
         isActive: true
       });
-      console.log('✅ Default admin user created.');
+      console.log('✅ Default admin user created');
     }
   } catch (error) {
-    console.error('❌ Error creating default admin:', error);
+    console.error('❌ Error creating default admin user:', error);
+  }
+};
+
+const createDefaultStudent = async () => {
+  try {
+    const studentExists = await User.findOne({ where: { email: 'student@example.com' } });
+    
+    if (!studentExists) {
+      await User.create({
+        firstName: 'Demo',
+        lastName: 'Student',
+        email: 'student@example.com',
+        password: 'student123',
+        role: 'student',
+        isActive: true
+      });
+      console.log('✅ Default student user created');
+    }
+  } catch (error) {
+    console.error('❌ Error creating default student user:', error);
   }
 };
 
@@ -94,5 +150,6 @@ module.exports = {
   User,
   Course,
   Enrollment,
+  Payment,
   syncDatabase
 };

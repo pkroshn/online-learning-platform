@@ -32,7 +32,7 @@ const getDashboardStats = async (req, res) => {
     // Enrollment statistics
     const [completedEnrollments, pendingEnrollments] = await Promise.all([
       Enrollment.count({ where: { status: 'completed' } }),
-      Enrollment.count({ where: { status: 'pending' } })
+      Enrollment.count({ where: { status: 'dropped' } })
     ]);
 
     // Calculate completion rate
@@ -48,9 +48,9 @@ const getDashboardStats = async (req, res) => {
       WHERE e.status = 'active'
     `, { type: sequelize.QueryTypes.SELECT });
     
-    const totalRevenue = parseFloat(revenueResult[0]?.totalrevenue || 0);
+    const totalRevenue = parseFloat(revenueResult[0]?.totalRevenue || 0);
 
-    // Monthly enrollment trends (last 6 months)
+    // Monthly enrollment trends (last 6 months) - MySQL compatible
     const enrollmentTrends = await sequelize.query(`
       SELECT 
         DATE_FORMAT(enrollment_date, '%Y-%m-01') as month,
@@ -58,13 +58,13 @@ const getDashboardStats = async (req, res) => {
       FROM enrollments
       WHERE enrollment_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
         AND status = 'active'
-      GROUP BY DATE_FORMAT(enrollment_date, '%Y-%m')
+      GROUP BY DATE_FORMAT(enrollment_date, '%Y-%m-01')
       ORDER BY month DESC
       LIMIT 6
     `, { type: sequelize.QueryTypes.SELECT });
 
     // Popular courses (top 5 by enrollment count)
-    const popularCoursesResult = await sequelize.query(`
+    const popularCourses = await sequelize.query(`
       SELECT 
         c.id,
         c.title,
@@ -78,8 +78,6 @@ const getDashboardStats = async (req, res) => {
       ORDER BY enrollmentCount DESC
       LIMIT 5
     `, { type: sequelize.QueryTypes.SELECT });
-    
-    const popularCourses = popularCoursesResult;
 
     // Recent enrollments (last 10)
     const recentEnrollments = await Enrollment.findAll({
@@ -87,11 +85,13 @@ const getDashboardStats = async (req, res) => {
       order: [['enrollmentDate', 'DESC']],
       include: [
         {
-          association: 'user',
+          model: User,
+          as: 'user',
           attributes: ['id', 'firstName', 'lastName', 'email']
         },
         {
-          association: 'course',
+          model: Course,
+          as: 'course',
           attributes: ['id', 'title', 'instructor']
         }
       ]
@@ -113,7 +113,8 @@ const getDashboardStats = async (req, res) => {
       where: { isActive: true },
       group: ['category'],
       order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
-      limit: 10
+      limit: 10,
+      raw: true
     });
 
     // User roles distribution
@@ -123,18 +124,21 @@ const getDashboardStats = async (req, res) => {
         [sequelize.fn('COUNT', sequelize.col('id')), 'count']
       ],
       group: ['role'],
-      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']]
+      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+      raw: true
     });
 
     // System health metrics
+    const coursesWithEnrollmentsResult = await sequelize.query(`
+      SELECT COUNT(DISTINCT c.id) as count
+      FROM courses c
+      INNER JOIN enrollments e ON c.id = e.course_id
+      WHERE c.is_active = true AND e.status = 'active'
+    `, { type: sequelize.QueryTypes.SELECT });
+
     const systemHealth = {
       activeUsersPercentage: totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
-      coursesWithEnrollments: await sequelize.query(`
-        SELECT COUNT(DISTINCT c.id) as count
-        FROM courses c
-        INNER JOIN enrollments e ON c.id = e.course_id
-        WHERE c.is_active = true AND e.status = 'active'
-      `, { type: sequelize.QueryTypes.SELECT }).then(result => parseInt(result[0]?.count || 0)),
+      coursesWithEnrollments: parseInt(coursesWithEnrollmentsResult[0]?.count || 0),
       averageEnrollmentsPerCourse: publishedCourses > 0 ? Math.round(totalEnrollments / publishedCourses) : 0
     };
 
@@ -184,11 +188,11 @@ const getDashboardStats = async (req, res) => {
         analytics: {
           categoryStats: categoryStats.map(stat => ({
             category: stat.category,
-            count: parseInt(stat.dataValues.count)
+            count: parseInt(stat.count)
           })),
           roleStats: roleStats.map(stat => ({
             role: stat.role,
-            count: parseInt(stat.dataValues.count)
+            count: parseInt(stat.count)
           }))
         },
         systemHealth

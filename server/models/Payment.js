@@ -76,27 +76,21 @@ const Payment = sequelize.define('Payment', {
 }, {
   tableName: 'payments',
   timestamps: true,
+  underscored: true,
   indexes: [
     {
-      fields: ['userId']
+      fields: ['user_id']
     },
     {
-      fields: ['courseId']
+      fields: ['course_id']
     },
     {
-      fields: ['stripeSessionId']
+      fields: ['stripe_session_id']
     },
     {
       fields: ['status']
     }
   ]
 });
-
-// Define associations
-Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-Payment.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
-
-User.hasMany(Payment, { foreignKey: 'userId', as: 'payments' });
-Course.hasMany(Payment, { foreignKey: 'courseId', as: 'payments' });
 
 module.exports = Payment;

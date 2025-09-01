@@ -4,7 +4,7 @@ const router = express.Router();
 const bodyParser = require('body-parser');
 const paymentController = require('../controllers/paymentController');
 const webhookController = require('../controllers/webhookController');
-const authMiddleware = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const { body, param, query } = require('express-validator');
 const { validationResult } = require('express-validator');
@@ -26,7 +26,7 @@ const validateRequest = (req, res, next) => {
 router.post('/webhook', webhookController.handleStripeWebhook);
 
 // User routes (require authentication)
-router.use(authMiddleware); // Apply auth middleware to all routes below
+router.use(authenticate); // Apply auth middleware to all routes below
 
 // Create checkout session for course purchase
 router.post('/checkout/:courseId',
@@ -85,6 +85,25 @@ router.post('/admin/refund/:paymentId',
   ],
   validateRequest,
   paymentController.refundPayment
+);
+
+// Get payment analytics (admin only)
+router.get('/admin/analytics',
+  [
+    query('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Period must be one of: 7d, 30d, 90d, 1y'),
+    query('courseId').optional().isInt().withMessage('Course ID must be a valid integer')
+  ],
+  validateRequest,
+  paymentController.getPaymentAnalytics
+);
+
+// Get course purchase statistics (admin only)
+router.get('/admin/course/:courseId/stats',
+  [
+    param('courseId').isInt().withMessage('Course ID must be a valid integer')
+  ],
+  validateRequest,
+  paymentController.getCoursePurchaseStats
 );
 
 module.exports = router;

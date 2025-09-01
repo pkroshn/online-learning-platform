@@ -11,6 +11,7 @@ const bodyParser = require('body-parser');
 const { testConnection, syncDatabase } = require('./models');
 const { specs, swaggerUi, swaggerOptions } = require('./config/swagger');
 const errorHandler = require('./middleware/errorHandler');
+const { paymentErrorHandler } = require('./middleware/paymentErrorHandler');
 const {
   generalLimiter,
   authLimiter,
@@ -129,6 +130,9 @@ app.use('/api/*', (req, res) => {
     path: req.originalUrl
   });
 });
+
+// Payment error handler (before global error handler)
+app.use('/api/payments', paymentErrorHandler);
 
 // Global error handler
 app.use(errorHandler);

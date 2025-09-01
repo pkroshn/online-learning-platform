@@ -119,6 +119,7 @@ const Course = sequelize.define('Course', {
   }
 }, {
   tableName: 'courses',
+  underscored: true,
   validate: {
     endDateAfterStartDate() {
       if (this.startDate && this.endDate && this.endDate <= this.startDate) {

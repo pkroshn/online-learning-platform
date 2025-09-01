@@ -34,6 +34,10 @@ import AdminSettings from './pages/admin/AdminSettings';
 import NotFoundPage from './pages/NotFoundPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 
+// Payment Pages
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import PaymentCancelPage from './pages/PaymentCancelPage';
+
 // Loading Component
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -223,6 +227,10 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+
+          {/* Payment Routes */}
+          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/payment/cancel" element={<PaymentCancelPage />} />
 
           {/* Error Routes */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />

@@ -3,7 +3,10 @@ const stripe = require('../config/stripe');
 const Payment = require('../models/Payment');
 const Course = require('../models/Course');
 const Enrollment = require('../models/Enrollment');
+const User = require('../models/User');
 const { Op } = require('sequelize');
+const paymentValidation = require('../utils/paymentValidation');
+const { createPaymentError } = require('../middleware/paymentErrorHandler');
 
 const paymentController = {
   // Create Stripe Checkout Session
@@ -305,6 +308,254 @@ const paymentController = {
         success: false,
         message: 'Failed to process refund',
         error: error.message
+      });
+    }
+  },
+
+  // Get payment analytics (admin only)
+  async getPaymentAnalytics(req, res) {
+    try {
+      const { period = '30d', courseId } = req.query;
+      const userId = req.user.id;
+
+      // Calculate date range
+      const now = new Date();
+      let startDate;
+      
+      switch (period) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Build where clause
+      const whereClause = {
+        createdAt: {
+          [Op.gte]: startDate
+        },
+        status: 'succeeded'
+      };
+
+      if (courseId) {
+        whereClause.courseId = courseId;
+      }
+
+      // Get payment statistics
+      const payments = await Payment.findAll({
+        where: whereClause,
+        include: [
+          { model: Course, as: 'course', attributes: ['id', 'title', 'category'] },
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName'] }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
+      // Calculate analytics
+      const totalRevenue = payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+      const totalPayments = payments.length;
+      const averageOrderValue = totalPayments > 0 ? totalRevenue / totalPayments : 0;
+
+      // Revenue by course
+      const revenueByCourse = {};
+      payments.forEach(payment => {
+        const courseTitle = payment.course.title;
+        if (!revenueByCourse[courseTitle]) {
+          revenueByCourse[courseTitle] = {
+            courseId: payment.course.id,
+            title: courseTitle,
+            revenue: 0,
+            sales: 0
+          };
+        }
+        revenueByCourse[courseTitle].revenue += parseFloat(payment.amount);
+        revenueByCourse[courseTitle].sales += 1;
+      });
+
+      // Revenue by category
+      const revenueByCategory = {};
+      payments.forEach(payment => {
+        const category = payment.course.category;
+        if (!revenueByCategory[category]) {
+          revenueByCategory[category] = {
+            category,
+            revenue: 0,
+            sales: 0
+          };
+        }
+        revenueByCategory[category].revenue += parseFloat(payment.amount);
+        revenueByCategory[category].sales += 1;
+      });
+
+      // Daily revenue for chart
+      const dailyRevenue = {};
+      payments.forEach(payment => {
+        const date = payment.createdAt.toISOString().split('T')[0];
+        if (!dailyRevenue[date]) {
+          dailyRevenue[date] = 0;
+        }
+        dailyRevenue[date] += parseFloat(payment.amount);
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          period,
+          summary: {
+            totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+            totalPayments,
+            averageOrderValue: parseFloat(averageOrderValue.toFixed(2)),
+            startDate: startDate.toISOString(),
+            endDate: now.toISOString()
+          },
+          revenueByCourse: Object.values(revenueByCourse),
+          revenueByCategory: Object.values(revenueByCategory),
+          dailyRevenue: Object.entries(dailyRevenue).map(([date, revenue]) => ({
+            date,
+            revenue: parseFloat(revenue.toFixed(2))
+          })).sort((a, b) => a.date.localeCompare(b.date)),
+          recentPayments: payments.slice(0, 10).map(payment => ({
+            id: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            status: payment.status,
+            paidAt: payment.paidAt,
+            course: {
+              id: payment.course.id,
+              title: payment.course.title,
+              category: payment.course.category
+            },
+            user: {
+              id: payment.user.id,
+              name: `${payment.user.firstName} ${payment.user.lastName}`
+            }
+          }))
+        }
+      });
+
+    } catch (error) {
+      console.error('Get payment analytics error:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          type: 'PAYMENT_ERROR',
+          code: 'ANALYTICS_ERROR',
+          message: 'Failed to get payment analytics'
+        }
+      });
+    }
+  },
+
+  // Get course purchase statistics
+  async getCoursePurchaseStats(req, res) {
+    try {
+      const { courseId } = req.params;
+
+      // Validate course exists
+      const course = await Course.findByPk(courseId);
+      if (!course) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            type: 'PAYMENT_ERROR',
+            code: 'INVALID_COURSE',
+            message: 'Course not found'
+          }
+        });
+      }
+
+      // Get payment statistics for this course
+      const payments = await Payment.findAll({
+        where: {
+          courseId,
+          status: 'succeeded'
+        },
+        include: [
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName'] }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
+      // Get enrollment statistics
+      const enrollments = await Enrollment.findAll({
+        where: { courseId },
+        include: [
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName'] }
+        ]
+      });
+
+      // Calculate statistics
+      const totalRevenue = payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+      const totalSales = payments.length;
+      const totalEnrollments = enrollments.length;
+      const completionRate = enrollments.length > 0 
+        ? (enrollments.filter(e => e.status === 'completed').length / enrollments.length * 100).toFixed(1)
+        : 0;
+
+      // Monthly sales data
+      const monthlySales = {};
+      payments.forEach(payment => {
+        const month = payment.createdAt.toISOString().substring(0, 7); // YYYY-MM
+        if (!monthlySales[month]) {
+          monthlySales[month] = {
+            month,
+            revenue: 0,
+            sales: 0
+          };
+        }
+        monthlySales[month].revenue += parseFloat(payment.amount);
+        monthlySales[month].sales += 1;
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          course: {
+            id: course.id,
+            title: course.title,
+            price: course.price,
+            currency: course.currency
+          },
+          statistics: {
+            totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+            totalSales,
+            totalEnrollments,
+            completionRate: parseFloat(completionRate),
+            averageOrderValue: totalSales > 0 ? parseFloat((totalRevenue / totalSales).toFixed(2)) : 0
+          },
+          monthlySales: Object.values(monthlySales).sort((a, b) => a.month.localeCompare(b.month)),
+          recentSales: payments.slice(0, 10).map(payment => ({
+            id: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            paidAt: payment.paidAt,
+            user: {
+              id: payment.user.id,
+              name: `${payment.user.firstName} ${payment.user.lastName}`
+            }
+          }))
+        }
+      });
+
+    } catch (error) {
+      console.error('Get course purchase stats error:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          type: 'PAYMENT_ERROR',
+          code: 'STATS_ERROR',
+          message: 'Failed to get course purchase statistics'
+        }
       });
     }
   }
