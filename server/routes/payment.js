@@ -58,6 +58,15 @@ router.get('/history',
   paymentController.getPaymentHistory
 );
 
+// Cancel pending payment
+router.post('/cancel/:courseId',
+  [
+    param('courseId').isInt().withMessage('Course ID must be a valid integer')
+  ],
+  validateRequest,
+  paymentController.cancelPendingPayment
+);
+
 // Admin routes (require admin privileges)
 router.use(adminMiddleware);
 

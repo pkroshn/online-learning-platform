@@ -6,6 +6,7 @@ import usersSlice from './slices/usersSlice';
 import uiSlice from './slices/uiSlice';
 import settingsSlice from './slices/settingsSlice';
 import dashboardSlice from './slices/dashboardSlice';
+import paymentsSlice from './slices/paymentsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     ui: uiSlice,
     settings: settingsSlice,
     dashboard: dashboardSlice,
+    payments: paymentsSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

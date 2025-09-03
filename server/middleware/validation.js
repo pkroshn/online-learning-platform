@@ -103,10 +103,9 @@ const validateCourse = [
     .isLength({ max: 500 })
     .withMessage('Short description must not exceed 500 characters'),
   
-  body('instructor')
-    .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Instructor name must be between 2 and 100 characters'),
+  body('instructorId')
+    .isInt({ min: 1 })
+    .withMessage('Valid instructor ID is required'),
   
   body('duration')
     .isInt({ min: 1, max: 1000 })

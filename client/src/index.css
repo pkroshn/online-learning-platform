@@ -56,8 +56,16 @@
     @apply px-3 py-1.5 text-xs;
   }
   
+  .btn-outline-sm {
+    @apply btn-outline px-3 py-1.5 text-xs;
+  }
+  
   .input {
     @apply block w-full rounded-lg border-gray-300 px-3 py-2 text-sm placeholder-gray-500 shadow-sm focus:border-primary-500 focus:ring-primary-500;
+  }
+  
+  .select-sm {
+    @apply block w-full rounded-md border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:ring-primary-500;
   }
   
   .input-error {

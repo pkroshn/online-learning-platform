@@ -39,8 +39,34 @@ const CourseDetailPage = () => {
     try {
       const response = await paymentAPI.createCheckoutSession(course.id);
       if (response.data.success && response.data.data.sessionUrl) {
-        // Redirect to Stripe checkout
-        window.location.href = response.data.data.sessionUrl;
+        // Check if this is an existing payment session
+        if (response.data.data.message && response.data.data.message.includes('already exists')) {
+          // Show confirmation dialog for existing payment
+          const shouldContinue = window.confirm(
+            'You have a payment in progress for this course. Would you like to continue with your existing payment?'
+          );
+          
+          if (shouldContinue) {
+            // Redirect to existing Stripe checkout session
+            window.location.href = response.data.data.sessionUrl;
+          } else {
+            // User wants to cancel existing payment and start fresh
+            try {
+              await paymentAPI.cancelPendingPayment(course.id);
+              // Retry creating a new checkout session
+              const newResponse = await paymentAPI.createCheckoutSession(course.id);
+              if (newResponse.data.success && newResponse.data.data.sessionUrl) {
+                window.location.href = newResponse.data.data.sessionUrl;
+              }
+            } catch (cancelError) {
+              console.error('Error canceling pending payment:', cancelError);
+              alert('Failed to cancel existing payment. Please try again.');
+            }
+          }
+        } else {
+          // New payment session - redirect to Stripe checkout
+          window.location.href = response.data.data.sessionUrl;
+        }
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);

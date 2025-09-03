@@ -148,6 +148,7 @@ export const paymentAPI = {
   createCheckoutSession: (courseId) => api.post(`/payments/checkout/${courseId}`),
   getPaymentStatus: (sessionId) => api.get(`/payments/status/${sessionId}`),
   getPaymentHistory: (params) => api.get('/payments/history', { params }),
+  cancelPendingPayment: (courseId) => api.post(`/payments/cancel/${courseId}`),
   // Admin endpoints
   getAllPayments: (params) => api.get('/payments/admin/all', { params }),
   refundPayment: (paymentId, data) => api.post(`/payments/admin/refund/${paymentId}`, data),

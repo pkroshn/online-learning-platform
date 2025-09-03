@@ -56,27 +56,33 @@ const CourseDetailWithModal = () => {
     try {
       const response = await paymentAPI.createCheckoutSession(course.id);
       if (response.data.success && response.data.data.sessionUrl) {
-        // For demo purposes, we'll show a success modal instead of redirecting
-        // In a real implementation, you would redirect to Stripe checkout
-        // window.location.href = response.data.data.sessionUrl;
-        
-        // Simulate successful payment data
-        const purchaseData = {
-          status: 'succeeded',
-          amount: course.price,
-          currency: 'USD',
-          paymentId: `PAY-${Date.now()}`,
-          paidAt: new Date().toISOString(),
-          paymentMethod: 'card',
-          courseId: course.id,
-          course: {
-            id: course.id,
-            title: course.title,
-            instructor: course.instructor || 'Course Instructor'
-          }
-        };
-        
-        showSuccess(purchaseData);
+        // Check if this is an existing payment session
+        if (response.data.data.message && response.data.data.message.includes('already exists')) {
+          // For demo purposes, show a message about existing payment
+          showError('You have a payment in progress for this course. Please complete your existing payment or cancel it to start a new one.');
+        } else {
+          // For demo purposes, we'll show a success modal instead of redirecting
+          // In a real implementation, you would redirect to Stripe checkout
+          // window.location.href = response.data.data.sessionUrl;
+          
+          // Simulate successful payment data
+          const purchaseData = {
+            status: 'succeeded',
+            amount: course.price,
+            currency: 'USD',
+            paymentId: `PAY-${Date.now()}`,
+            paidAt: new Date().toISOString(),
+            paymentMethod: 'card',
+            courseId: course.id,
+            course: {
+              id: course.id,
+              title: course.title,
+              instructor: course.instructor || 'Course Instructor'
+            }
+          };
+          
+          showSuccess(purchaseData);
+        }
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);

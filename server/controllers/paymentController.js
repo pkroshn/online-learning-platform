@@ -46,9 +46,14 @@ const paymentController = {
       });
 
       if (existingPayment) {
-        return res.status(400).json({
-          success: false,
-          message: 'Payment already in progress for this course'
+        // Return the existing payment session URL so user can continue
+        return res.status(200).json({
+          success: true,
+          data: {
+            sessionId: existingPayment.stripeSessionId,
+            sessionUrl: existingPayment.metadata?.sessionUrl,
+            message: 'Payment session already exists. You can continue with your existing payment.'
+          }
         });
       }
 
@@ -556,6 +561,53 @@ const paymentController = {
           code: 'STATS_ERROR',
           message: 'Failed to get course purchase statistics'
         }
+      });
+    }
+  },
+
+  // Cancel pending payment
+  async cancelPendingPayment(req, res) {
+    try {
+      const { courseId } = req.params;
+      const userId = req.user.id;
+
+      // Find existing pending payment
+      const existingPayment = await Payment.findOne({
+        where: {
+          userId,
+          courseId,
+          status: 'pending'
+        }
+      });
+
+      if (!existingPayment) {
+        return res.status(404).json({
+          success: false,
+          message: 'No pending payment found for this course'
+        });
+      }
+
+      // Update payment status to canceled
+      await existingPayment.update({
+        status: 'canceled',
+        metadata: {
+          ...existingPayment.metadata,
+          canceledAt: new Date(),
+          canceledBy: 'user'
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Pending payment cancelled successfully'
+      });
+
+    } catch (error) {
+      console.error('Cancel pending payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to cancel pending payment',
+        error: error.message
       });
     }
   }
