@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -142,6 +142,16 @@ export const usersAPI = {
 
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
+};
+
+export const paymentAPI = {
+  createCheckoutSession: (courseId) => api.post(`/payments/checkout/${courseId}`),
+  getPaymentStatus: (sessionId) => api.get(`/payments/status/${sessionId}`),
+  getPaymentHistory: (params) => api.get('/payments/history', { params }),
+  cancelPendingPayment: (courseId) => api.post(`/payments/cancel/${courseId}`),
+  // Admin endpoints
+  getAllPayments: (params) => api.get('/payments/admin/all', { params }),
+  refundPayment: (paymentId, data) => api.post(`/payments/admin/refund/${paymentId}`, data),
 };
 
 export default api;

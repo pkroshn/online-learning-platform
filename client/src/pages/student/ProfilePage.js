@@ -6,10 +6,12 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   CalendarIcon,
-  KeyIcon
+  KeyIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import { selectUser, updateProfile, changePassword, selectAuthLoading } from '../../store/slices/authSlice';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PurchaseHistory from '../../components/student/PurchaseHistory';
 
 const ProfilePage = () => {
   const user = useSelector(selectUser);
@@ -57,6 +59,7 @@ const ProfilePage = () => {
   const tabs = [
     { id: 'profile', name: 'Profile Information', icon: UserIcon },
     { id: 'password', name: 'Change Password', icon: KeyIcon },
+    { id: 'purchases', name: 'Purchase History', icon: CurrencyDollarIcon },
   ];
 
   return (
@@ -282,6 +285,11 @@ const ProfilePage = () => {
               </button>
             </div>
           </form>
+        )}
+
+        {/* Purchase History Tab */}
+        {activeTab === 'purchases' && (
+          <PurchaseHistory />
         )}
       </div>
     </div>
